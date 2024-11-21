@@ -2,22 +2,21 @@ import tkinter as tk
 from tkinter import messagebox, font
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
-from Crypto.Protocol.KDF import PBKDF2 #Password-Based Key Derivation Function 2
+from Crypto.Protocol.KDF import PBKDF2 
 import base64
+
 
 class EncryptionApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Encrypt & Decrypt App") 
+        self.root.title("Encrypt & Decrypt App")
         self.root.geometry("500x450")
         self.root.configure(bg="#e6f2ff")
 
-        # Merubah font
         self.title_font = font.Font(family="Helvetica", size=14, weight="bold")
         self.label_font = font.Font(family="Helvetica", size=12)
         self.button_font = font.Font(family="Helvetica", size=10, weight="bold")
 
-        # Bagian main menu
         main_menu = tk.Frame(root, bg="#e6f2ff")
         main_menu.pack(expand=True)
 
@@ -25,8 +24,8 @@ class EncryptionApp:
         tk.Label(main_menu, text="Pilih Menu:", font=self.label_font, bg="#e6f2ff", fg="#003366").pack(pady=10)
 
         tk.Button(main_menu, text="Enkripsi", font=self.button_font, bg="#4da6ff", fg="white", command=self.encryption_menu, width=15).pack(pady=5)
-        tk.Button(main_menu, text="Dekripsi", font=self.button_font, bg="#4da6ff", fg="white", command=self.decryption_menu, width=15).pack(pady=5)
-        
+        tk.Button(main_menu, text="Dienkripsi", font=self.button_font, bg="#4da6ff", fg="white", command=self.decryption_menu, width=15).pack(pady=5)
+
     def encryption_menu(self):
         self.clear_window()
 
@@ -42,30 +41,33 @@ class EncryptionApp:
         self.key_output = tk.Text(self.root, font=("Courier", 10), width=40, height=2, borderwidth=2, relief="solid", bg="#f2faff")
         self.key_output.pack(pady=5)
 
-        # Tombol menu enkripsi
         button_frame = tk.Frame(self.root, bg="#e6f2ff")
         button_frame.pack(pady=15)
-        
+
         tk.Button(button_frame, text="Enkripsi", font=self.button_font, bg="#4da6ff", fg="white", command=self.encrypt_message, width=12).pack(side="left", padx=5)
         tk.Button(button_frame, text="Kembali", font=self.button_font, bg="#ff6666", fg="white", command=self.back_to_main, width=12).pack(side="left", padx=5)
         tk.Button(button_frame, text="Reset", font=self.button_font, bg="#ff6666", fg="white", command=self.reset_encryption, width=12).pack(side="left", padx=5)
 
     def encrypt_message(self):
-        message = self.message_entry.get().encode()
-        
+        message = self.message_entry.get().strip()  
+
+        if not message:
+            messagebox.showerror("Error", "Pesan tidak boleh kosong!")
+            return
+
         key = get_random_bytes(32)
         salt = get_random_bytes(16)
         key_derived = PBKDF2(key, salt, dkLen=32)
 
         cipher = AES.new(key_derived, AES.MODE_EAX)
-        ciphertext, tag = cipher.encrypt_and_digest(message)
-        
+        ciphertext, tag = cipher.encrypt_and_digest(message.encode())
+
         encrypted_data = base64.urlsafe_b64encode(cipher.nonce + tag + ciphertext).decode()
         encryption_key = base64.urlsafe_b64encode(key + salt).decode()
-        
+
         self.encrypted_output.delete("1.0", tk.END)
         self.encrypted_output.insert(tk.END, encrypted_data)
-        
+
         self.key_output.delete("1.0", tk.END)
         self.key_output.insert(tk.END, encryption_key)
 
@@ -80,7 +82,7 @@ class EncryptionApp:
         tk.Label(self.root, text="Masukkan pesan terenkripsi:", font=self.label_font, bg="#e6f2ff", fg="#003366").pack(pady=10)
         self.encrypted_entry = tk.Entry(self.root, font=("Helvetica", 10), width=50, borderwidth=2, relief="solid")
         self.encrypted_entry.pack(pady=5)
-        
+
         tk.Label(self.root, text="Masukkan kunci untuk dekripsi:", font=self.label_font, bg="#e6f2ff", fg="#003366").pack(pady=10)
         self.key_entry = tk.Entry(self.root, font=("Helvetica", 10), width=50, borderwidth=2, relief="solid")
         self.key_entry.pack(pady=5)
@@ -89,33 +91,39 @@ class EncryptionApp:
         self.decrypted_output = tk.Text(self.root, font=("Courier", 10), width=44, height=4, borderwidth=2, relief="solid", bg="#f2faff")
         self.decrypted_output.pack(pady=5)
 
-        # Tombol menu dekripsi
         button_frame = tk.Frame(self.root, bg="#e6f2ff")
         button_frame.pack(pady=15)
-        
+
         tk.Button(button_frame, text="Dienkripsi", font=self.button_font, bg="#4da6ff", fg="white", command=self.decrypt_message, width=12).pack(side="left", padx=5)
         tk.Button(button_frame, text="Kembali", font=self.button_font, bg="#ff6666", fg="white", command=self.back_to_main, width=12).pack(side="left", padx=5)
         tk.Button(button_frame, text="Reset", font=self.button_font, bg="#ff6666", fg="white", command=self.reset_decryption, width=12).pack(side="left", padx=5)
 
     def decrypt_message(self):
+        encrypted_text = self.encrypted_entry.get().strip()  
+        decryption_key = self.key_entry.get().strip()
+
+        if not encrypted_text or not decryption_key:
+            messagebox.showerror("Error", "Pesan terenkripsi dan kunci tidak boleh kosong!")
+            return
+
         try:
-            encrypted_data = base64.urlsafe_b64decode(self.encrypted_entry.get())
-            key_salt_data = base64.urlsafe_b64decode(self.key_entry.get())
+            encrypted_data = base64.urlsafe_b64decode(encrypted_text)
+            key_salt_data = base64.urlsafe_b64decode(decryption_key)
             key = key_salt_data[:32]
             salt = key_salt_data[32:]
 
             key_derived = PBKDF2(key, salt, dkLen=32)
-            
+
             nonce = encrypted_data[:16]
             tag = encrypted_data[16:32]
             ciphertext = encrypted_data[32:]
-            
+
             cipher = AES.new(key_derived, AES.MODE_EAX, nonce=nonce)
             decrypted_message = cipher.decrypt_and_verify(ciphertext, tag)
-            
+
             self.decrypted_output.delete("1.0", tk.END)
             self.decrypted_output.insert(tk.END, decrypted_message.decode())
-        except (ValueError, KeyError) as e:
+        except (ValueError, KeyError, base64.binascii.Error) as e:
             messagebox.showerror("Error", "Dekripsi gagal. Pastikan data dan kunci benar.")
 
     def reset_decryption(self):
